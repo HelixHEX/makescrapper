@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,16 +14,16 @@ import (
 // main() contains code adapted from example found in Colly's docs:
 // http://go-colly.org/docs/examples/basic/
 
-type post struct {
-	title string
-	like  int
+type Post struct {
+	Title string `json:"title"`
+	Like  int    `json:"like"`
 }
 
 func main() {
 	// Instantiate default collector
 	c := colly.NewCollector()
 
-	posts := []post{}
+	posts := []Post{}
 
 	c.OnHTML("div.crayons-story", func(e *colly.HTMLElement) {
 		e.ForEach("span.aggregate_reactions_counter", func(_ int, el *colly.HTMLElement) {
@@ -41,22 +43,18 @@ func main() {
 				return
 			}
 
-			fmt.Println(e.ChildText("h2.crayons-story__title"))
-
-			p := post{
-				like:  likeCount,
-				title: e.ChildText("h2.crayons-story__title"),
+			p := Post{
+				Like:  likeCount,
+				Title: e.ChildText("h2.crayons-story__title"),
 			}
 			posts = append(posts, p)
 		})
 
 		sort.Slice(posts, func(i, j int) bool {
-			return posts[i].like > posts[j].like
+			return posts[i].Like > posts[j].Like
 		})
 
-		for _, r := range posts {
-			fmt.Printf("Like count: %d\n", r.like)
-		}
+		saveToJSON(posts)
 	})
 
 	// Before making a request print "Visiting ..."
@@ -66,4 +64,23 @@ func main() {
 
 	// Start scraping on https://dev.to
 	c.Visit("https://dev.to/")
+}
+
+func saveToJSON(posts []Post) {
+
+	jsonData, err := json.MarshalIndent(posts, "", "    ")
+	fmt.Println(posts)
+	if err != nil {
+		fmt.Println("Failed to marshal reactions to JSON:", err)
+		return
+	}
+
+	err = ioutil.WriteFile("output.json", jsonData, 0644)
+
+	if err != nil {
+		fmt.Println("Failed to write posts JSON file:", err)
+		return
+	}
+
+	fmt.Println("Posts saved to output.json")
 }
